@@ -33,7 +33,15 @@ async function readBatch(bath, context) {
                     context.buffer[2] == 255 &&
                     context.buffer[3] == 255 &&
                     context.buffer[4] == 17) {
-                    console.log("header");
+                    //console.log("header");
+                    var header = "";
+                    for (var i = 6; i < 6+ 12; i++) {
+                        header += String.fromCharCode(context.buffer[i]);
+                    }
+
+
+
+                    console.log("title '" + header+ "'");
                     context.iteration = 0;
                 }
 
