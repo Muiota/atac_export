@@ -4,13 +4,36 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>A-TAC EXPORTER</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous">
+    <link href="assets/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-    <button onclick="startExport()">Export</button>
-    <hr>
-    <div id="status"></div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-HwwvtgBNo3bZJJLYd8oVXjrBZt8cqVSpeBNS5n7C8IVInixGAoxmnlMuBnhbgrkm" crossorigin="anonymous"></script>
-    <script src="assets/js/core.js"></script>
+    <div class="container">
+    <div class="row">
+        <div class="col">
+            <div class="p-3 border bg-transparent">
+                <button id="btn_connect" class="btn btn-primary" disabled="disabled" onclick="atacExport.startConnect()">Connect</button>
+                <hr>
+                <div id="div_status"></div>
+                <div class="progress">
+                    <div class="progress-bar" id="progress_status" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+                <hr>
+                <div class="row">
+                    <div class="col">
+                        <button id="btn_export" class="btn btn-danger" disabled="disabled" onclick="atacExport.startExport()">Export</button>
+                    </div>
+                    <div class="col">
+                        <h1 id="div_title">fd</h1>
+
+                    </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+        </div>
+
+        <script src="assets/js/bootstrap.bundle.min.js"></script>
+        <script src="assets/js/core.js"></script>
 </body>
 </html>
