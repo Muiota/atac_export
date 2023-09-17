@@ -1,11 +1,36 @@
 
+const COMPOSITION_PRESET_QNT = 4;
 
+
+const STORE_MAP_INSTRUMENT_TIMELINE_SIZE = 512;
+const STORE_MAP_PRESET_SIZE = 1024;
+const STORE_MAP_SONG_LIST_HEADER = 8192;
+const STORE_MAP_SONG_COUNT = 100;
+
+const SONG_PRESET_SIZE = 49152;
+
+const COMPOSITION_INSTRUMENT_QNT = 4;
+
+const COMPOSITION_TOTAL_PATTERN_LEN = 256;
+
+const GuitarPresetItem = 642;
+const CompositionPatternItem = 258;
+const DrumPatternsSetting = 12276;
+const BassPatternsSetting = 4896;
+const SynthPatternsSetting = 15048;
+const AutomationPatternsSetting = 2592;
+const LfoSettings = 36;
+const CompositionGlobalSettings = 98;
+const COMPLEX_LFO_QNT = 3;
 
 class AtacExport {
     constructor(options) {
+        
         this.currentPort = undefined;
         this.iteration = 0;
         this.buffer = [];
+        this.result = [];
+        this.globalCrc = 0;
         this.status = {
             isConnected: false,
             isAllowed: false,
@@ -49,7 +74,8 @@ class AtacExport {
                     this.buffer[1] == 255 &&
                     this.buffer[2] == 255 &&
                     this.buffer[3] == 255 &&
-                    this.buffer[4] == 17) {
+                    this.buffer[4] == 17 &&
+                    this.buffer[5] == 0) {
                     //console.log("header");
                     var header = "";
                     for (var i = 6; i < 6 + 12; i++) {
@@ -58,10 +84,17 @@ class AtacExport {
 
                     this.status.header = header;
                     this.status.isCorrect = false;
+                    this.result = [];
                     console.log("title '" + header + "'");
                     this.iteration = 0;
                 }
+                else {
+                    for (var i = 0; i < 32; i++) {
+                        this.result.push(this.buffer[i]);
+                    }
 
+                        
+                }
                 console.log("ok " + this.iteration);
                 const response = new Uint8Array(2);
                 var result = crc ^ 17;
@@ -72,7 +105,11 @@ class AtacExport {
                 const writer = this.currentPort.writable.getWriter();
                 await writer.write(response);
                 writer.releaseLock();
-               
+
+                if (this.iteration == 1296 && this.result.length == 41472) {
+                    this.status.isCorrect = true;
+                 //   this.checkCrc();
+                }
 
             }
             this.buffer = [];
@@ -84,6 +121,7 @@ class AtacExport {
     }
     async startExportAsync() {
         this.status.isConnected = false;
+        this.status.error = undefined;
         this.iteration = 0;
         this.buffer = [];
         this.status.isCorrect = false;
@@ -113,6 +151,9 @@ class AtacExport {
                 }
             } catch (error) {
                 console.error(error);
+                this.status.error = error;
+                this.status.isConnected = false;
+                this.updateStatus();
             } finally {
                 reader.releaseLock();
             }
@@ -130,6 +171,55 @@ class AtacExport {
         }
     }
 
+    checkCrc() {
+        this.globalCrc = 0;
+
+        this.checkCrcPart(0, this.result.length);
+        this.status.isCorrect = this.globalCrc == 0;
+        return;
+
+        var seek = 0;
+        for (var item = 0; item < COMPOSITION_PRESET_QNT; item++)
+        {
+            this.checkCrcPart(seek + item * STORE_MAP_PRESET_SIZE, GuitarPresetItem);
+        }
+        seek += STORE_MAP_PRESET_SIZE * COMPOSITION_PRESET_QNT;
+
+
+        for (var item = 0; item < COMPOSITION_INSTRUMENT_QNT; item++)
+        {         
+            this.checkCrcPart(seek + item * STORE_MAP_INSTRUMENT_TIMELINE_SIZE, CompositionPatternItem);         
+        }
+        seek += STORE_MAP_INSTRUMENT_TIMELINE_SIZE * COMPOSITION_INSTRUMENT_QNT;
+
+
+        this.checkCrcPart(seek, DrumPatternsSetting);
+
+        seek += DrumPatternsSetting;
+        this.checkCrcPart(seek, BassPatternsSetting);
+        seek += BassPatternsSetting;
+
+        this.checkCrcPart(seek, SynthPatternsSetting);
+        seek += SynthPatternsSetting;
+        this.checkCrcPart(seek, AutomationPatternsSetting);
+        seek += AutomationPatternsSetting;
+
+        for (var item = 0; item < COMPLEX_LFO_QNT; item++)
+        {           
+            this.checkCrcPart(seek + item * LfoSettings, LfoSettings);
+        }
+        seek += COMPLEX_LFO_QNT * LfoSettings;
+        this.checkCrcPart(seek, CompositionGlobalSettings);
+
+        this.status.isCorrect = this.globalCrc == 0;
+    }
+
+    checkCrcPart(start, size) {
+        for (var k = start; k < start + size; k += 2) {
+            var data = this.result[k] + (this.result[k + 1] << 8);
+            this.globalCrc = this.globalCrc ^ data;
+        }
+    }
 
     updateStatus() {
 
@@ -152,12 +242,14 @@ var options = {
     statusCallback: function (status) {
 
         var statusElement = document.getElementById("div_status");
+        var errorElement = document.getElementById("div_error");
         var btnConnectElement = document.getElementById("btn_connect");
+        var btnExportElement = document.getElementById("btn_export");
         var progressElement = document.getElementById("progress_status");
         var titleElement = document.getElementById("div_title");
         
         console.log(status);
-        btnConnectElement.disabled = !status.isAllowed;
+        btnConnectElement.disabled = !status.isAllowed || status.isConnected;
 
 
         var text = "";
@@ -168,12 +260,14 @@ var options = {
             text = "USB connect not allowed";
         }
 
-
+        errorElement.innerHTML = status.error ? status.error : "";
         statusElement.innerHTML = text + " (" + (status.isConnected ? "connected" : "disconnected") + ")";
 
         titleElement.innerHTML = status.isCorrect ? status.header : "";
 
         progressElement.style.width = status.progress + '%';
+
+        btnExportElement.disabled = !status.isConnected || !status.isCorrect;
         
        
     }
