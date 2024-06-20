@@ -223,7 +223,7 @@ class AtacExport {
         this.status.error = undefined;
         this.iteration = 0;
         this.buffer = [];
-        this.status.isCorrect = false;
+        //this.status.isCorrect = false;
         this.updateStatus();
         this.currentPort = undefined;
 
