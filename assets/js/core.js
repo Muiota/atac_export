@@ -149,7 +149,14 @@ class AtacExport {
             }
         }
 
+        if (this.buffer.length > 16 &&
+            this.buffer[0] == 65 && 
+                this.buffer[1] == 45 && 
+            this.buffer[2] == 84 &&
+            this.buffer[3] == 65) {            
+            this.buffer = [];
 
+        }
     }
 
     startExport() {        
