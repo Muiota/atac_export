@@ -356,6 +356,7 @@ navigator.serial.addEventListener("connect", (event) => {
 						that.result = arr;
 						that.status.isCorrect = true;
 						that.status.header = file.name.split(".atac")[0];
+						
 					}
 				
 			}
