@@ -24,6 +24,20 @@ class AtacExport {
         }
 
         this.updateStatus();
+		
+		
+		navigator.serial.addEventListener("disconnect", (event) => {
+			console.log(event);
+    // TODO: Remove |event.target| from the UI.
+    // If the serial port was opened, a stream error would be observed as well.
+});
+
+navigator.serial.addEventListener("connect", (event) => {
+		console.log(event);
+		// this.startListenerCore(event.target);
+    // TODO: Remove |event.target| from the UI.
+    // If the serial port was opened, a stream error would be observed as well.
+});
     }
 
     async readBatch(bath) {
@@ -149,14 +163,7 @@ class AtacExport {
             }
         }
 
-        if (this.buffer.length > 16 &&
-            this.buffer[0] == 65 && 
-                this.buffer[1] == 45 && 
-            this.buffer[2] == 84 &&
-            this.buffer[3] == 65) {            
-            this.buffer = [];
 
-        }
     }
 
     startExport() {        
@@ -213,6 +220,9 @@ class AtacExport {
             
             const writer = this.currentPort.writable.getWriter();
             await writer.write(request);
+			
+			//await writer.write(request);
+			
             writer.releaseLock();
             this.updateTimeoutTimer();
             this.updateStatus();
@@ -223,6 +233,11 @@ class AtacExport {
 
     }
 
+	async closePortAsync(port) {		
+		if (port.readable || port.writable ) {			  
+			await port.close();			  
+		}
+	}
 
     async startListenAsync() {
         this.status.isExportMode = false;
@@ -234,17 +249,52 @@ class AtacExport {
         this.updateStatus();
         this.currentPort = undefined;
 
-        var port = await navigator.serial.requestPort();
+        var port = await navigator.serial.requestPort({});
+		await this.closePortAsync(port); 
         var instance = await port.open({ baudRate: 115200 });
-        this.status.isConnected = true;
+		
+		
+		await this.startListenerCore(port);
+		
+
+        
+    }
+
+
+  async startDisconnectAsync() {
+	  if (this.currentPort) {
+	   this.status.isConnected = false;
+        this.status.error = undefined;
+		
+		       
+			   if (this.reader && this.currentPort.readable && this.currentPort.readable.locked) {
+				   //const reader = this.currentPort.readable.getReader();
+					this.reader.releaseLock();
+					//this.currentPort.readable.cancel();
+			   }
+
+      
+	   if (this.currentPort.writable && this.currentPort.writable.locked) {
+		   //const writer = this.currentPort.writable.getWriter();
+			this.currentPort.writable.cancel();
+	   }
+
+		
+       await this.closePortAsync(this.currentPort); 	     
+	  }
+    }
+
+	async startListenerCore(port) {
+		
+		this.status.isConnected = true;
         this.updateStatus();
         this.currentPort = port;
 
         while (this.currentPort && this.currentPort.readable) {
-            const reader = this.currentPort.readable.getReader();
+            this.reader = this.currentPort.readable.getReader();
             try {
                 while (true) {
-                    const { value, done } = await reader.read();
+                    const { value, done } = await this.reader.read();
                     if (done) {
                         // |reader| has been canceled.
                         break;
@@ -260,13 +310,13 @@ class AtacExport {
                 this.status.error = error;
                 this.status.isConnected = false;
                 this.updateStatus();
+				this.currentPort.close();
             } finally {
-                reader.releaseLock();
+                this.reader.releaseLock();
             }
         }
-    }
-
-
+		
+	}
 
 
     startConnect() {
@@ -274,6 +324,52 @@ class AtacExport {
         if (this.status.isAllowed) {
 
             this.startListenAsync().then((result) => { });
+        }
+    }
+
+
+	saveToFile() {
+		var a = document.createElement("a");
+		document.body.appendChild(a);
+		a.style = "display: none";
+		var blob = new Blob([this.result]);
+		var url = window.URL.createObjectURL(blob);
+		a.href = url;
+		a.download = this.status.header.trim() + ".atac";
+		a.click();
+		window.URL.revokeObjectURL(url);
+	}
+
+	
+	loadFromFile(e) {
+		var file = e.files[0];
+		if (!file) {
+			return;
+		}
+		var reader = new FileReader();
+		var that = this;
+		reader.onload = function(e) {
+			var contents = e.target.result;
+			if (contents) {
+					var arr = contents.split(",");
+					if (arr.length == 41472) {
+						that.result = arr;
+						that.status.isCorrect = true;
+						that.status.header = file.name.split(".atac")[0];
+					}
+				
+			}
+			that.updateStatus();
+			};
+		reader.readAsText(file);
+	}
+
+
+   startDisconnect() {
+        this.status.isConnected = false;
+        if (this.status.isAllowed) {
+
+            this.startDisconnectAsync().then((result) => { });
         }
     }
 
@@ -311,12 +407,21 @@ var options = {
         var statusElement = document.getElementById("div_status");
         var errorElement = document.getElementById("div_error");
         var btnConnectElement = document.getElementById("btn_connect");
+		var btnDisconnectElement = document.getElementById("btn_disconnect");
         var btnExportElement = document.getElementById("btn_export");
+		
+		var btnSaveElement = document.getElementById("btn_save")
+		var btnLoadElement = document.getElementById("btn_load")
+		
         var progressElement = document.getElementById("progress_status");
         var titleElement = document.getElementById("div_title");
 
-        console.log(status);
+        //console.log(status);
         btnConnectElement.disabled = !status.isAllowed || status.isConnected;
+		btnDisconnectElement.disabled = ! btnConnectElement.disabled ;
+
+        btnConnectElement.hidden = btnConnectElement.disabled;
+		btnDisconnectElement.hidden = btnDisconnectElement.disabled;
 
 
         var text = "";
@@ -335,8 +440,8 @@ var options = {
         progressElement.style.width = status.progress + '%';
 
         btnExportElement.disabled = !status.isConnected || !status.isCorrect || status.isExportMode;
-
-
+		btnSaveElement.disabled = btnExportElement.disabled;
+		btnLoadElement.disabled = !status.isConnected;
         if (status.isExportMode) {
             progressElement.classList.add("bg-danger");
         } else {

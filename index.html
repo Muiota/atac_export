@@ -13,6 +13,7 @@
         <div class="col">
             <div class="p-3 border bg-transparent">
                 <button id="btn_connect" class="btn btn-primary" disabled="disabled" onclick="atacExport.startConnect()">Connect</button>
+				<button id="btn_disconnect" class="btn btn-danger" disabled="disabled" onclick="atacExport.startDisconnect()">Disconnect</button>
                 <hr>
                 <div id="div_status"></div>
                 <div class="text-danger" id="div_error"></div>
@@ -22,8 +23,18 @@
                 <hr>
                 <div class="row">
                     <div class="col">
+					 <div class="" role="group" aria-label="Basic example">
                         <button id="btn_export" class="btn btn-danger" disabled="disabled" onclick="atacExport.startExport()">Export</button>
+						<input  id="btn_load" type="file"  class="" disabled="disabled" onchange="atacExport.loadFromFile(this)"></input >
+						  </div>
                     </div>
+					
+					 <div class="col">
+					
+                        <button id="btn_save" class="btn btn-success" disabled="disabled" onclick="atacExport.saveToFile()">Save to file</button>
+						  
+                    </div>
+					
                     <div class="col">
                         <h1 id="div_title"></h1>
 
